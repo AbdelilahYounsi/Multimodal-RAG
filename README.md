@@ -34,8 +34,8 @@ It provides a simple **Streamlit** interface to ingest data and query it using e
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/multimodal-rag.git
-cd multimodal-rag
+git clone https://github.com/AbdelilahYounsi/Multimodal-RAG.git
+cd Multimodal-RAG
 ```
 
 ### 2. Start Milvus with Docker Compose
@@ -51,12 +51,6 @@ This will start:
 * **Milvus standalone server**
 * **etcd** and **minio** dependencies
 
-Milvus will be accessible at:
-
-```
-Host: localhost  
-Port: 19530
-```
 
 You can verify it’s running:
 
@@ -140,30 +134,6 @@ Then open:
 | **Milvus**     | Vector storage            | `pymilvus`            |
 | **CrewAI**     | Multi-agent orchestration | `crewai`              |
 | **PyPDF2**     | PDF text extraction       | `PyPDF2`              |
-
----
-
-## 🧾 Example Usage
-
-1. Drop `sample.pdf` and `lecture.mp3` into your `data/` folder.
-
-2. Start the Streamlit app.
-
-3. Enter your Gemini API key in the sidebar.
-
-4. Click **Ingest Data**.
-
-5. Ask something like:
-
-   ```
-   What were the main topics discussed in the lecture?
-   ```
-
-6. You’ll see:
-
-   * ✅ The model’s generated answer
-   * 📚 Retrieved context passages from Milvus
-   * 🎙️ Transcribed query (for audio inputs)
 
 ---
 
