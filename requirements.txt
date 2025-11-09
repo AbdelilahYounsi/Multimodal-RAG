@@ -1,0 +1,7 @@
+streamlit
+google-generativeai
+openai-whisper
+pymilvus
+PyPDF2
+crewai
+crewai-tools
