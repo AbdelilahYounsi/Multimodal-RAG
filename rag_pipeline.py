@@ -29,6 +29,20 @@ def get_whisper_model():
         _whisper_model = whisper.load_model("small")
     return _whisper_model
 
+# Keep track of already ingested files
+INGESTED_FILES = Path("ingested_files.txt")
+
+def get_ingested_files() -> set:
+    """Load list of already ingested files"""
+    if INGESTED_FILES.exists():
+        return set(INGESTED_FILES.read_text().splitlines())
+    return set()
+
+def save_ingested_file(filename: str):
+    """Append filename to ingested list"""
+    with open(INGESTED_FILES, "a") as f:
+        f.write(f"{filename}\n")
+
 
 @dataclass
 class IngestionState:
@@ -90,15 +104,18 @@ class IngestionFlow(Flow):
     
     @start()
     def load_files(self):
-        """Load all files from data directory"""
+        """Load only new files"""
         logger.info("Loading files...")
         data_dir = Path(config.DATA_DIR)
+        ingested = get_ingested_files()
+        
         files = []
-        
         for ext in ["*.pdf", "*.mp3", "*.wav", "*.txt"]:
-            files.extend(glob.glob(str(data_dir / ext)))
+            for file_path in data_dir.glob(ext):
+                if file_path.name not in ingested:
+                    files.append(str(file_path))
         
-        logger.info(f"Found {len(files)} files")
+        logger.info(f"Found {len(files)} new files")
         return IngestionState(files=files)
     
     @listen(lambda s: s.files)
@@ -115,7 +132,7 @@ class IngestionFlow(Flow):
                     reader = PdfReader(file_path)
                     text = "\n".join(page.extract_text() for page in reader.pages)
                 elif file_path.suffix in ['.mp3', '.wav']:
-                    model = get_whisper_model()
+                    model = get_whisper_model() 
                     result = model.transcribe(str(file_path))
                     text = result["text"]
                 elif file_path.suffix == '.txt':
@@ -141,23 +158,23 @@ class IngestionFlow(Flow):
         logger.info("Setting up Milvus...")
         connections.connect(host=config.MILVUS_HOST, port=config.MILVUS_PORT)
         
-        if utility.has_collection(config.COLLECTION_NAME):
-            utility.drop_collection(config.COLLECTION_NAME)
+        if not utility.has_collection(config.COLLECTION_NAME):
+            fields = [
+                FieldSchema("id", DataType.INT64, is_primary=True, auto_id=True),
+                FieldSchema("text", DataType.VARCHAR, max_length=65535),
+                FieldSchema("source", DataType.VARCHAR, max_length=500),
+                FieldSchema("embedding", DataType.FLOAT_VECTOR, dim=config.EMBEDDING_DIM)
+            ]
+            schema = CollectionSchema(fields)
+            collection = Collection(config.COLLECTION_NAME, schema)
+            collection.create_index("embedding", {"index_type": "FLAT", "metric_type": "COSINE"})
+        else:
+            collection = Collection(config.COLLECTION_NAME)
         
-        fields = [
-            FieldSchema("id", DataType.INT64, is_primary=True, auto_id=True),
-            FieldSchema("text", DataType.VARCHAR, max_length=65535),
-            FieldSchema("source", DataType.VARCHAR, max_length=500),
-            FieldSchema("embedding", DataType.FLOAT_VECTOR, dim=config.EMBEDDING_DIM)
-        ]
-        
-        schema = CollectionSchema(fields)
-        collection = Collection(config.COLLECTION_NAME, schema)
-        collection.create_index("embedding", {"index_type": "FLAT", "metric_type": "COSINE"})
-        
+        collection.load()
         logger.info("Milvus setup complete")
         return IngestionState(files=state.files, chunks=state.chunks, collection=collection)
-    
+        
     @listen(lambda s: s.collection)
     def embed_and_store(self, state: IngestionState):
         """Generate embeddings and store in Milvus"""
@@ -168,22 +185,27 @@ class IngestionFlow(Flow):
         
         # Batch embeddings
         embeddings = []
-        for i in range(0, len(texts), 10):
-            batch = texts[i:i+10]
-            result = genai.embed_content(
-                model=config.EMBEDDING_MODEL,
-                content=batch,
-                task_type="retrieval_document"
-            )
-            embeddings.extend(result['embedding'])
-        
-        # Insert into Milvus
-        data = [texts, sources, embeddings]
-        state.collection.insert(data)
+        if texts:
+            for i in range(0, len(texts), 10):
+                batch = texts[i:i+10]
+                result = genai.embed_content(
+                    model=config.EMBEDDING_MODEL,
+                    content=batch,
+                    task_type="retrieval_document"
+                )
+                embeddings.extend(result['embedding'])
+            for chunk in state.chunks:
+                save_ingested_file(chunk["source"])
+            # Insert into Milvus
+            data = [texts, sources, embeddings]
+            state.collection.insert(data)
+            logger.info(f"Stored {len(texts)} chunks")
+        else:
+            logger.info("No new chunks to store")
         state.collection.flush()
         state.collection.load()
         
-        logger.info(f"Stored {len(texts)} chunks")
+        
         return state
 
 

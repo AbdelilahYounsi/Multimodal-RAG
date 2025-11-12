@@ -11,5 +11,5 @@ EMBEDDING_DIM = 768  # Gemini embedding dimension
 DATA_DIR = "./data"
 
 # Model settings
-GEMINI_MODEL = "gemini-2.0-flash-exp"
+GEMINI_MODEL = "gemini-2.0-flash"
 EMBEDDING_MODEL = "models/text-embedding-004"
