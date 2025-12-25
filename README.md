@@ -1,158 +1,155 @@
-# 🤖 Multimodal RAG with Gemini + Whisper + Milvus
+# Local Multimodal RAG
 
-This project is a **multimodal retrieval-augmented generation (RAG)** system that integrates **Google Gemini**, **OpenAI Whisper**, and **Milvus** to enable **question answering over text, PDFs, and audio**.
-It provides a simple **Streamlit** interface to ingest data and query it using either **text** or **audio input**.
+A local, privacy-first Retrieval-Augmented Generation (RAG) system powered by **llama.cpp**, **Qwen**, **Voxtral**, and **Milvus**.
 
----
+## Features
 
-## 🚀 Features
+ **Multimodal Input Support**
+- 📄 PDF documents
+- 📝 Text files
+- 🎵 Audio files (MP3, WAV)
 
-* **Multimodal ingestion:** Extracts and embeds text from `.pdf`, `.txt`, `.mp3`, and `.wav` files.
-* **Vector database:** Uses **Milvus** for fast semantic search.
-* **Gemini models:** Handles both embeddings and response generation.
-* **Audio transcription:** Converts audio queries or documents into text with **Whisper**.
-* **Streamlit UI:** Clean, interactive web interface for ingestion and querying.
+ **Local Processing**
+- No API calls, complete privacy
+- Runs entirely on your machine
+- Uses open-source models
 
----
+ **Audio Transcription**
+- Voxtral-Mini-3B for accurate audio-to-text conversion (can use whisper or any other model)
+- Support for multiple audio formats
 
-## 📦 Project Structure
+ **Vector Search**
+- Milvus vector database for semantic search
+- Qwen 3 embedding model (0.6B) (any other model)
+- COSINE similarity matching
 
-```
-.
-├── app.py                 # Streamlit UI
-├── rag_pipeline.py        # Core RAG logic (Ingestion + Query Flows)
-├── config.py              # Configuration (paths, model names, Milvus setup)
-├── requirements.txt       # Python dependencies
-├── docker-compose.yml     # Milvus setup
-└── README.md              # Documentation
-```
+✨ **Response Generation**
+- Qwen3-VL-4B for intelligent answer generation
+- Context-aware responses based on retrieved documents
 
----
+## Prerequisites
 
-## ⚙️ Setup Instructions
+- **Python 3.10+**
+- **llama.cpp** (with build compiled)
+- **Milvus** 
 
-### 1. Clone the repository
+## Installation
 
+1. **Clone the repository**
 ```bash
 git clone https://github.com/AbdelilahYounsi/Multimodal-RAG.git
 cd Multimodal-RAG
 ```
 
-### 2. Start Milvus with Docker Compose
-
-Ensure Docker and Docker Compose are installed, then run:
-
+2. **Create virtual environment**
 ```bash
-docker-compose up -d
+python -m venv venv
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # macOS/Linux
 ```
 
-This will start:
-
-* **Milvus standalone server**
-* **etcd** and **minio** dependencies
-
-
-You can verify it’s running:
-
+3. **Install dependencies**
 ```bash
-docker ps
-```
-
----
-
-### 3. Set up Python environment
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
----
+4. **Download models** (if not already done)
+- Place models in `..\llama.cpp\models\` directory
+- Required models: (or any other models)
+  - `Voxtral-Mini-3B-2507-Q4_K_M.gguf`
+  - `mmproj-Voxtral-Mini-3B-2507-Q8_0.gguf`
+  - `qwen3-embedding-0.6B.gguf`
+  - `Qwen3-VL-4B-Instruct-Q4_K_M.gguf`
 
-### 4. Configure environment
-
-Edit the `config.py` file to match your setup:
-
-```python
-DATA_DIR = "data"
-MILVUS_HOST = "localhost"
-MILVUS_PORT = "19530"
-COLLECTION_NAME = "rag_collection"
-EMBEDDING_DIM = 768
-EMBEDDING_MODEL = "models/embedding-001"
-GEMINI_MODEL = "gemini-2.0-flash"
+5. **Start Milvus**
+```bash
+docker compose up 
 ```
 
----
+## Configuration
 
-### 5. Run the Streamlit app
+Update `config.py` with your system paths:
 
+```python
+# Local llama.cpp paths
+LLAMA_MTMD_CLI_PATH = r"path\to\llama-mtmd-cli"
+LLAMA_CLI_PATH = r"path\to\llama-cli"
+LLAMA_EMB_PATH = r"path\to\llama-embedding"
+
+# Model paths
+VOXTRAL_MODEL = r"path\to\Voxtral-Mini-3B.gguf"
+EMBEDDING_MODEL_PATH = r"path\to\qwen3-embedding-0.6B.gguf"
+TEXT_LLM_MODEL_PATH = r"path\to\Qwen3-VL-4B-Instruct.gguf"
+```
+
+## Usage
+
+1. **Add your documents**
+   - Place files in `./data` folder
+   - Supported: PDF, TXT, MP3, WAV
+
+2. **Run the app**
 ```bash
 streamlit run app.py
 ```
 
-Then open:
-👉 [http://localhost:8501](http://localhost:8501)
+3. **Ingest data**
+   - Click "🚀 Ingest Data" in the sidebar
+   - Wait for processing to complete
 
----
+4. **Ask questions**
+   - Choose query type: Text or Audio
+   - Enter your question
+   - Click "🔍 Search"
 
-## 🧠 How It Works
+## Project Structure
 
-### Step 1 — Data Ingestion
-
-1. Place your `.pdf`, `.txt`, `.mp3`, or `.wav` files in the directory defined in `config.DATA_DIR`.
-2. In the sidebar, click **🚀 Ingest Data**.
-3. The ingestion flow will:
-
-   * Extract text from files
-   * Split text into 1000-character chunks
-   * Generate embeddings using Gemini
-   * Store everything in Milvus
-
-### Step 2 — Query
-
-1. Enter your **Gemini API key** in the sidebar.
-2. Choose between **Text** or **Audio** query.
-3. Click **🔍 Search**.
-4. The app will:
-
-   * Transcribe audio (if applicable)
-   * Generate query embeddings
-   * Retrieve top-5 similar chunks from Milvus
-   * Generate a synthesized response using Gemini
-
----
-
-## 🧰 Technologies Used
-
-| Component      | Purpose                   | Library               |
-| -------------- | ------------------------- | --------------------- |
-| **Streamlit**  | Web UI                    | `streamlit`           |
-| **Gemini API** | Embeddings + generation   | `google-generativeai` |
-| **Whisper**    | Audio transcription       | `openai-whisper`      |
-| **Milvus**     | Vector storage            | `pymilvus`            |
-| **CrewAI**     | Multi-agent orchestration | `crewai`              |
-| **PyPDF2**     | PDF text extraction       | `PyPDF2`              |
-
----
-
-## ⚠️ Notes
-
-* The Whisper model (`small`) is loaded locally — the first load may take time.
-* Re-ingesting data will recreate the Milvus collection (erasing old data).
-* Supported formats: `.pdf`, `.txt`, `.mp3`, `.wav`.
-
----
-
-## 🧹 Stop Services
-
-When done, stop Milvus:
-
-```bash
-docker-compose down
+```
+multimodal-rag/
+├── app.py                 # Streamlit UI
+├── flows.py              # CrewAI flows for ingestion & RAG
+├── config.py             # Configuration settings
+├── utils.py              # Helper functions for transcription, embedding and response generation
+├── requirements.txt      # Python dependencies
+├── data/                 # Your documents folder
+├── ingested_files.txt    # Tracking ingested files
+└── README.md
 ```
 
----
+## How It Works
+
+### Ingestion Pipeline
+1. **Load Files** - Scans `./data` for supported file types
+2. **Process Content** - Extracts text from PDFs, transcribes audio
+3. **Chunk Data** - Splits documents into manageable chunks
+4. **Generate Embeddings** - Creates vector representations using Qwen embedding model
+5. **Store in Milvus** - Indexes vectors for semantic search
+
+### RAG Pipeline
+1. **Transcribe Query** - Converts audio queries to text 
+2. **Search** - Finds semantically similar chunks from knowledge base
+3. **Generate Response** - Uses Qwen3-VL-4B to generate context-aware answers
+
+
+## Troubleshooting
+
+**Models not found?**
+- Ensure llama.cpp is built: `cd ../llama.cpp && cmake --build build`
+- Verify model paths in `config.py`
+
+**Milvus connection failed?**
+- Check if Milvus is running: `docker ps`
+- Restart Milvus: `docker restart milvus`
+
+**Response is empty?**
+- Check terminal logs for errors
+- Ensure ingestion completed successfully
+- Try re-ingesting with fresh data
+
+## License
+
+MIT License - See LICENSE file for details
+
+
 
 
