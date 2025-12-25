@@ -9,4 +9,4 @@ env/
 venv/
 .venv
 .env
-
+ingested_files.txt/
