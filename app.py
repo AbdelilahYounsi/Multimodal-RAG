@@ -3,33 +3,30 @@ import streamlit as st
 import tempfile
 import os
 from pathlib import Path
-import google.generativeai as genai
 
-from rag_pipeline import IngestionFlow, MultimodalRAGFlow
+from flows import IngestionFlow, MultimodalRAGFlow
 import config
 
-st.set_page_config(page_title="Simple RAG", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Local Multimodal RAG", page_icon="🤖", layout="wide")
 
 # Initialize session state
 if "ingestion_done" not in st.session_state:
     st.session_state.ingestion_done = False
 
-st.title("🤖 Simple Multimodal RAG")
+st.title("🤖 Local Multimodal RAG (Powered by llama.cpp)")
 
-# Sidebar for API key and setup
+# Sidebar for setup
 with st.sidebar:
     st.header("⚙️ Setup")
     
-    api_key = st.text_input("Gemini API Key", type="password", key="api_key")
+    st.markdown("---")
+    st.header("📁 Data Ingestion")
+    st.info(f"Place your files in `{config.DATA_DIR}` folder")
+    st.caption("Supported: PDF, MP3, WAV, TXT")
     
-    if api_key:
-        genai.configure(api_key=api_key)
-        st.success("API Key configured!")
-        
-        st.markdown("---")
-        st.header("📁 Data Ingestion")
-        st.info(f"Place your files in `{config.DATA_DIR}` folder")
-        
+    col1, col2 = st.columns(2)
+    
+    with col1:
         if st.button("🚀 Ingest Data", disabled=st.session_state.ingestion_done):
             with st.spinner("Processing files..."):
                 try:
@@ -43,14 +40,18 @@ with st.sidebar:
                     st.success(f"✅ Ingested {len(state2.chunks)} chunks!")
                 except Exception as e:
                     st.error(f"Error: {e}")
-        
+    
+    with col2:
         if st.session_state.ingestion_done:
-            st.success("✅ System Ready!")
+            if st.button("🔄 Re-ingest", help="Reset and ingest files again"):
+                st.session_state.ingestion_done = False
+                st.rerun()
+    
+    if st.session_state.ingestion_done:
+        st.success("✅ System Ready!")
 
 # Main query interface
-if not api_key:
-    st.warning("👈 Please enter your Gemini API key in the sidebar")
-elif not st.session_state.ingestion_done:
+if not st.session_state.ingestion_done:
     st.warning("👈 Please ingest data first using the sidebar")
 else:
     st.header("💬 Ask Questions")
@@ -59,48 +60,34 @@ else:
     query_type = st.radio("Query Type:", ["Text", "Audio"], horizontal=True)
     
     if query_type == "Text":
-        query = st.text_input("Enter your question:", key="text_query")
-        audio_file = None
+        text_query = st.text_input("Enter your question:", key="text_query")
+        audio_query = None
     else:
-        audio_file = st.file_uploader("Upload audio file", type=["mp3", "wav"])
-        query = ""
+        audio_query = st.audio_input("Record query", key = "audio_query")
+        text_query = ""
     
     if st.button("🔍 Search", type="primary"):
-        if query or audio_file:
+        if text_query or audio_query:
             with st.spinner("Processing..."):
                 try:
-                    # Save audio if uploaded
-                    temp_audio = None
-                    if audio_file:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-                            f.write(audio_file.read())
-                            temp_audio = f.name
-                    
                     # Run query flow
-                    flow = MultimodalRAGFlow(api_key)
-                    state1 = flow.transcribe_audio_if_needed(query, temp_audio)
+                    flow = MultimodalRAGFlow()
+                    state1 = flow.transcribe_audio_if_needed(text_query, audio_query)
                     state2 = flow.search_knowledge_base(state1)
                     state3 = flow.generate_response(state2)
                     
                     # Display results
                     st.success("✅ Done!")
-                    
-                    if temp_audio:
-                        st.info(f"**Transcribed Query:** {state3.query}")
-                    
-                    st.markdown("### 🤖 Answer")
-                    st.markdown(state3.response)
+
+                    if not state3.response:
+                        st.warning("⚠️ Response is empty. Check logs for errors.")
+                    else:
+                        st.markdown("### 🤖 Answer")
+                        st.markdown(state3.response)
                     
                     with st.expander("📚 Retrieved Context"):
                         st.text(state3.results)
-                    
-                    # Cleanup
-                    if temp_audio:
-                        try:
-                            os.unlink(temp_audio)
-                        except:
-                            pass
-                
+                        
                 except Exception as e:
                     st.error(f"Error: {e}")
         else:
@@ -108,4 +95,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.caption("Multimodal RAG with Gemini 2.5 Flash + Whisper + Milvus")
+st.caption("Local Multimodal RAG with llama.cpp (Qwen + Voxtral) + Milvus")
